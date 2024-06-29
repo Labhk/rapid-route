@@ -1,5 +1,7 @@
 // Home.js
 import { useState } from 'react';
+import { storage } from '@/firebase/config'; // Assuming you've initialized Firebase storage in firebase.js
+import { ref, uploadBytes } from 'firebase/storage';
 
 export default function Home() {
   const [file, setFile] = useState(null);
@@ -15,25 +17,17 @@ export default function Home() {
     e.preventDefault();
     if (!file) return;
 
-    const formData = new FormData();
-    formData.append('file', file);
-
     try {
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
+      // Construct reference to the file in Firebase Storage
+      const storageRef = ref(storage, `uploads/${file.name}`);
 
-      if (!response.ok) {
-        throw new Error('Upload failed');
-      }
+      // Upload file to Firebase Storage
+      await uploadBytes(storageRef, file);
 
-      const data = await response.json();
-      if (data.success) {
-        setUploadedFileName(data.fileName);
-      } else {
-        throw new Error('Upload failed');
-      }
+      // Extract uploaded file name from file object
+      const fileName = file.name.split('.html')[0];
+
+      setUploadedFileName(fileName);
     } catch (error) {
       console.error('Error uploading file:', error);
     }
@@ -61,7 +55,7 @@ export default function Home() {
           <p className="mt-4">
             File uploaded successfully! View it at:{' '}
             <a
-              href={`/up/${uploadedFileName}.html`}
+              href={`/up/${uploadedFileName}`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-red-500 hover:underline"
