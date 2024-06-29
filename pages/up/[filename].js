@@ -25,19 +25,20 @@ export async function getStaticPaths() {
 
     return {
       paths,
-      fallback: false,
+      fallback: "blocking",
     };
-  } catch (error) {
+  } catch (error) { 
     console.error('Error fetching static paths:', error);
     return {
       paths: [],
-      fallback: false,
+      fallback: "blocking",
     };
   }
 }
 
 export async function getStaticProps({ params }) {
   const { filename } = params;
+  console.log('filename:', filename);
 
   try {
     // Construct reference to the file in Firebase Storage

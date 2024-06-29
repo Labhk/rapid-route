@@ -9,7 +9,10 @@ export default function Home() {
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files.length > 0) {
-      setFile(e.target.files[0]);
+      const selectedFile = e.target.files[0];
+      // Sanitize the filename by replacing spaces with underscores
+      const sanitizedFile = new File([selectedFile], selectedFile.name.replace(/\s+/g, '-'), { type: selectedFile.type });
+      setFile(sanitizedFile);
     }
   };
 
