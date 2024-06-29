@@ -36,7 +36,7 @@ export default function Home() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-black text-white">
       <div className="bg-gray-900 p-14 rounded-lg shadow-md">
-        <h1 className="text-2xl font-bold mb-4">Upload HTML File</h1>
+        <h1 className="text-2xl font-bold mb-4">Upload HTML File Here</h1>
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
             type="file"
