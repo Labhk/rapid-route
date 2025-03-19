@@ -1,7 +1,7 @@
 // Home.js
 import { useState, useEffect } from 'react';
 import { storage } from '@/firebase/config';
-import { ref, uploadBytes, listAll, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, listAll, getDownloadURL, getMetadata } from 'firebase/storage';
 
 export default function Home() {
   const [files, setFiles] = useState([]);
@@ -21,16 +21,23 @@ export default function Home() {
         const filesWithUrls = await Promise.all(
           result.items.map(async (item) => {
             const url = await getDownloadURL(item);
+            const metadata = await getMetadata(item);
             return {
               name: item.name.split('.html')[0],
               url: `/up/${item.name.split('.html')[0]}`,
               fullUrl: url,
-              status: 'success'
+              status: 'success',
+              uploadTime: metadata.timeCreated
             };
           })
         );
 
-        setUploadedFiles(filesWithUrls);
+        // Sort files by upload time (newest first)
+        const sortedFiles = filesWithUrls.sort((a, b) => 
+          new Date(b.uploadTime) - new Date(a.uploadTime)
+        );
+
+        setUploadedFiles(sortedFiles);
       } catch (error) {
         console.error('Error fetching files:', error);
       } finally {
@@ -61,10 +68,12 @@ export default function Home() {
         const storageRef = ref(storage, `uploads/${fileObj.file.name}`);
         await uploadBytes(storageRef, fileObj.file);
         const fileName = fileObj.file.name.split('.html')[0];
+        const metadata = await getMetadata(storageRef);
         return {
           name: fileName,
           url: `/up/${fileName}`,
-          status: 'success'
+          status: 'success',
+          uploadTime: metadata.timeCreated
         };
       } catch (error) {
         console.error('Error uploading file:', error);
@@ -78,8 +87,12 @@ export default function Home() {
 
     try {
       const results = await Promise.all(uploadPromises);
-      setUploadedFiles(prev => [...prev, ...results]);
-      setRecentUploads(results); // Set recent uploads
+      // Sort all files by upload time (newest first)
+      const sortedFiles = [...uploadedFiles, ...results].sort((a, b) => 
+        new Date(b.uploadTime) - new Date(a.uploadTime)
+      );
+      setUploadedFiles(sortedFiles);
+      setRecentUploads(results);
       setFiles([]); // Clear the files array after successful upload
     } catch (error) {
       console.error('Error in batch upload:', error);
@@ -101,6 +114,11 @@ export default function Home() {
     } catch (err) {
       console.error('Failed to copy links:', err);
     }
+  };
+
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleString();
   };
 
   return (
@@ -195,13 +213,11 @@ export default function Home() {
           ) : uploadedFiles.length > 0 ? (
             <div className="space-y-2">
               {uploadedFiles.map((file, index) => (
-                <div key={index} className="flex items-center gap-3 bg-gray-800 p-3 rounded">
-                  <div className="flex items-center space-x-2">
+                <div key={index} className="flex items-center justify-between bg-gray-800 p-3 rounded">
+                  <div className="flex items-center gap-3">
                     <span className={file.status === 'success' ? 'text-green-400' : 'text-red-400'}>
                       {file.status === 'success' ? '✓' : '✕'}
                     </span>
-                  </div>
-                  <div className="flex">
                     <a
                       href={file.url}
                       target="_blank"
@@ -211,6 +227,9 @@ export default function Home() {
                       {file.name}
                     </a>
                   </div>
+                  <span className="text-sm text-gray-400">
+                    {formatDate(file.uploadTime)}
+                  </span>
                 </div>
               ))}
             </div>
