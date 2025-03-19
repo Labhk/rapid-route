@@ -227,9 +227,7 @@ export default function Home() {
                       {file.name}
                     </a>
                   </div>
-                  <span className="text-sm text-gray-400">
-                    {formatDate(file.uploadTime)}
-                  </span>
+                 
                 </div>
               ))}
             </div>
