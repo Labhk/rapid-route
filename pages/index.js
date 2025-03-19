@@ -1,12 +1,45 @@
 // Home.js
-import { useState } from 'react';
-import { storage } from '@/firebase/config'; // Assuming you've initialized Firebase storage in firebase.js
-import { ref, uploadBytes } from 'firebase/storage';
+import { useState, useEffect } from 'react';
+import { storage } from '@/firebase/config';
+import { ref, uploadBytes, listAll, getDownloadURL } from 'firebase/storage';
 
 export default function Home() {
   const [files, setFiles] = useState([]);
   const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [recentUploads, setRecentUploads] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [copySuccess, setCopySuccess] = useState(false);
+
+  // Fetch files from Firebase Storage on component mount
+  useEffect(() => {
+    const fetchFiles = async () => {
+      try {
+        const storageRef = ref(storage, 'uploads');
+        const result = await listAll(storageRef);
+        
+        const filesWithUrls = await Promise.all(
+          result.items.map(async (item) => {
+            const url = await getDownloadURL(item);
+            return {
+              name: item.name.split('.html')[0],
+              url: `/up/${item.name.split('.html')[0]}`,
+              fullUrl: url,
+              status: 'success'
+            };
+          })
+        );
+
+        setUploadedFiles(filesWithUrls);
+      } catch (error) {
+        console.error('Error fetching files:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchFiles();
+  }, []);
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -46,6 +79,7 @@ export default function Home() {
     try {
       const results = await Promise.all(uploadPromises);
       setUploadedFiles(prev => [...prev, ...results]);
+      setRecentUploads(results); // Set recent uploads
       setFiles([]); // Clear the files array after successful upload
     } catch (error) {
       console.error('Error in batch upload:', error);
@@ -56,6 +90,17 @@ export default function Home() {
 
   const removeFile = (index) => {
     setFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const copyAllLinks = async () => {
+    const links = recentUploads.map(file => `${window.location.origin}${file.url}`).join('\n');
+    try {
+      await navigator.clipboard.writeText(links);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy links:', err);
+    }
   };
 
   return (
@@ -112,33 +157,67 @@ export default function Home() {
           </button>
         </form>
 
-        {uploadedFiles.length > 0 && (
-          <div className="mt-8">
-            <h2 className="text-lg font-semibold mb-4">Uploaded Files:</h2>
+        {/* Recent Uploads Section */}
+        {recentUploads.length > 0 && (
+          <div className="mt-8 bg-gray-800 p-4 rounded-lg">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold">Recent Uploads</h2>
+              <button
+                onClick={copyAllLinks}
+                className="px-3 py-1 bg-blue-500 hover:bg-blue-600 rounded text-sm"
+              >
+                {copySuccess ? 'Copied!' : 'Copy All Links'}
+              </button>
+            </div>
+            <div className="space-y-2">
+              {recentUploads.map((file, index) => (
+                <div key={index} className="flex items-center gap-3 bg-gray-700 p-2 rounded">
+                  <span className="text-green-400">✓</span>
+                  <a
+                    href={file.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-red-500 hover:text-red-400"
+                  >
+                    {file.name}
+                  </a>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* All Files Section */}
+        <div className="mt-8">
+          <h2 className="text-lg font-semibold mb-4">All Files:</h2>
+          {isLoading ? (
+            <div className="text-center text-gray-400">Loading files...</div>
+          ) : uploadedFiles.length > 0 ? (
             <div className="space-y-2">
               {uploadedFiles.map((file, index) => (
-                <div key={index} className="flex items-center justify-between bg-gray-800 p-3 rounded">
+                <div key={index} className="flex items-center gap-3 bg-gray-800 p-3 rounded">
                   <div className="flex items-center space-x-2">
                     <span className={file.status === 'success' ? 'text-green-400' : 'text-red-400'}>
                       {file.status === 'success' ? '✓' : '✕'}
                     </span>
-                    <span>{file.name}</span>
                   </div>
-                  {file.status === 'success' && (
+                  <div className="flex">
                     <a
                       href={file.url}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-red-500 hover:text-red-400"
                     >
-                      View
+                      {file.name}
                     </a>
-                  )}
+                  </div>
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="text-center text-gray-400">No files uploaded yet</div>
+          )}
+        </div>
       </div>
     </div>
   );
